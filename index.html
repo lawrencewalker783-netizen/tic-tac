@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Futuristic Tic-Tac-Toe — Multiplayer</title>
+<style>
+/* Minimal included font fallback */
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,Arial,sans-serif;background:radial-gradient(circle at 10% 10%, #061028 0%, #000814 60%);color:#e6f1ff;min-height:100vh}
+.container{max-width:1100px;margin:18px auto;padding:16px}
+.header{display:flex;gap:12px;align-items:center;padding:12px;border-radius:12px;background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));box-shadow:0 8px 26px rgba(0,0,0,0.6)}
+.logo{width:52px;height:52px;border-radius:12px;background:linear-gradient(135deg,#6ee7b7,#60a5fa);display:flex;align-items:center;justify-content:center;color:#021022;font-weight:800}
+.title{font-size:18px;margin:0}
+.header .controls{margin-left:auto;display:flex;gap:8px;align-items:center}
+.input{padding:8px 10px;border-radius:999px;border:0;background:rgba(255,255,255,0.03);color:#e6f1ff}
+.btn{padding:10px 14px;border-radius:12px;border:0;background:linear-gradient(90deg,#6ee7b7,#60a5fa);color:#021022;font-weight:700;cursor:pointer}
+.grid{display:grid;grid-template-columns:300px 1fr 320px;gap:16px;margin-top:16px}
+@media(max-width:980px){.grid{grid-template-columns:1fr;padding:8px}}
+.panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:14px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.6)}
+.profile{display:flex;flex-direction:column;align-items:center;gap:10px}
+.avatar{width:110px;height:110px;border-radius:14px;object-fit:cover;border:3px solid rgba(255,255,255,0.04)}
+.small{font-size:13px;color:#9fb3c8}
+.centerTop{display:flex;justify-content:space-between;align-items:center}
+.roomControls{display:flex;gap:8px;align-items:center}
+.roomInput{padding:8px;border-radius:10px;border:0;background:rgba(255,255,255,0.02);color:#e6f1ff}
+.boardWrap{display:flex;flex-direction:column;align-items:center;margin-top:14px}
+.board{width:min(560px,86vw);aspect-ratio:1/1;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:14px;border-radius:16px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));position:relative;overflow:hidden}
+.board::before{content:"";position:absolute;inset:-3px;border-radius:18px;padding:3px;background:conic-gradient(from 180deg,#60a5fa,#6ee7b7,#60a5fa);filter:blur(18px);opacity:0.45;pointer-events:none}
+.cell{background:rgba(255,255,255,0.02);border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;transition:transform .08s,box-shadow .12s;position:relative}
+.cell:hover{transform:translateY(-6px)}
+.cell.disabled{opacity:.6;cursor:not-allowed}
+.symbol{font-size:56px;line-height:1}
+.cell.x .symbol{color:#7ee7b7;text-shadow:0 6px 24px rgba(126,231,183,0.06)}
+.cell.o .symbol{color:#ffd166;text-shadow:0 6px 24px rgba(255,209,102,0.06)}
+.win{transform:scale(1.04);box-shadow:0 8px 40px rgba(110,231,183,0.06) inset}
+.statusRow{display:flex;justify-content:center;gap:12px;margin-top:12px}
+.pill{background:rgba(255,255,255,0.02);padding:10px 14px;border-radius:999px;font-weight:700;color:#e6f1ff}
+.gamesList{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.gameItem{display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:10px;background:rgba(255,255,255,0.01)}
+.footer{margin-top:14px;text-align:center;color:#9fb3c8;font-size:13px}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="logo">NX</div>
+    <div>
+      <div class="title">Nexora — TicTacToe (Futuristic)</div>
+      <div class="small">Two-player online — create a room, share code, play</div>
+    </div>
+    <div class="controls" style="margin-left:auto">
+      <input id="quickRoom" class="input" placeholder="room code" />
+      <button class="btn" onclick="quickJoin()">Join</button>
+      <button class="btn" onclick="openProfile()">Profile</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- Left panel -->
+    <div class="panel">
+      <div class="profile">
+        <img id="leftAvatar" class="avatar" src="https://via.placeholder.com/110" alt="avatar">
+        <div id="leftName" style="font-weight:700">Guest</div>
+        <div id="leftStatus" class="small">Not signed in</div>
+        <div style="width:100%;margin-top:8px">
+          <label class="small">Nickname</label>
+          <input id="nickInput" class="roomInput" placeholder="Type a nickname" />
+          <label class="small" style="margin-top:8px;display:block">Avatar (optional)</label>
+          <input id="avatarInput" type="file" accept="image/*" />
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="btn" onclick="saveProfile()">Save</button>
+            <button class="btn" onclick="loadLocalProfile()">Load</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center board -->
+    <div class="panel">
+      <div class="centerTop">
+        <div>
+          <div style="font-weight:800">Room: <span id="roomDisplay">—</span></div>
+          <div class="small" id="roomSub">Create a room or join one to begin</div>
+        </div>
+        <div class="roomControls">
+          <input id="roomInput" class="roomInput" placeholder="room code" />
+          <button class="btn" onclick="joinRoom()">Join</button>
+          <button class="btn" onclick="createRoom()">Create</button>
+          <button class="btn" onclick="leaveRoom()">Leave</button>
+        </div>
+      </div>
+
+      <div class="boardWrap">
+        <div id="board" class="board" role="grid" aria-label="tic tac toe board"></div>
+        <div class="statusRow">
+          <div id="turnPill" class="pill">Not in room</div>
+          <div id="playersPill" class="pill">Players: —</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right -->
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-weight:800">Active Rooms</div>
+        <div class="small">Auto 1.5s</div>
+      </div>
+      <div id="gamesList" class="gamesList"></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn" onclick="manualRefresh()">Refresh</button>
+        <button class="btn" id="autoBtn" onclick="toggleAuto()">Auto: On</button>
+      </div>
+      <div class="footer">Open the page on another device and use the same room code. Moves sync via JSONBin.</div>
+    </div>
+  </div>
+</div>
+
+<!-- profile modal -->
+<div id="profileModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);align-items:center;justify-content:center">
+  <div style="width:360px;background:linear-gradient(180deg,#04112d,#061534);padding:16px;border-radius:12px;color:#e6eef8">
+    <h3 style="margin:0 0 8px">Profile</h3>
+    <input id="modalNick" placeholder="Nickname" style="width:100%;padding:10px;border-radius:8px;border:0;margin-bottom:8px" />
+    <input id="modalAvatar" type="file" accept="image/*" style="margin-bottom:8px" />
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn" onclick="closeProfile()">Cancel</button>
+      <button class="btn" onclick="saveModalProfile()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========================
+  REPLACE THESE with your JSONBin values
+  Do not share the API key publicly.
+======================== */
+const BIN_ID = 'YOUR_BIN_ID_HERE';         // <-- replace with your bin id (e.g. 68dec20fae596e708f03ecb8)
+const API_KEY = 'YOUR_API_KEY_HERE';       // <-- replace with your JSONBin X-Master-Key
+const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+/* Local state */
+let profile = { nickname: 'Guest', avatar: 'https://via.placeholder.com/110' };
+let games = {};            // remote cached games
+let currentRoom = null;
+let mySymbol = null;       // 'X' | 'O' | null for spectator
+let pollTimer = null;
+let autoOn = true;
+
+/* Helpers */
+const $ = id => document.getElementById(id);
+const nowISO = () => new Date().toISOString();
+const randCode = (n=6) => { const chars='ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<n;i++) s+=chars[Math.floor(Math.random()*chars.length)]; return s; };
+
+/* --- JSONBin remote helpers --- */
+async function fetchRemote(){
+  const res = await fetch(API_URL, { headers: { 'X-Master-Key': API_KEY } });
+  if(!res.ok) throw new Error('fetchRemote failed: ' + res.status);
+  return res.json();
+}
+async function saveRemote(obj){
+  const res = await fetch(API_URL, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+    body: JSON.stringify(obj)
+  });
+  if(!res.ok) throw new Error('saveRemote failed: ' + res.status);
+  return res.json();
+}
+
+/* Load games and render */
+async function loadGames(){
+  try {
+    const data = await fetchRemote();
+    const record = data.record || {};
+    games = (record.games && typeof record.games === 'object') ? record.games : {};
+    renderGamesList();
+    if(currentRoom) renderRoom(games[currentRoom]);
+  } catch(err) {
+    console.error('loadGames', err);
+    // Quietly fail but log
+  }
+}
+
+/* Merge-and-save a single room (safe update):
+   - fetch remote
+   - call updater(existingRoomOrNull) -> updatedRoom (return null to cancel)
+   - save whole games object
+*/
+async function mergeAndSave(roomCode, updater){
+  try {
+    const data = await fetchRemote();
+    const remoteGames = (data.record && data.record.games) ? data.record.games : {};
+    const current = remoteGames[roomCode] || null;
+    const updated = updater(current);
+    if(!updated) return false;
+    remoteGames[roomCode] = updated;
+    await saveRemote({ games: remoteGames });
+    await loadGames();
+    return true;
+  } catch(err) {
+    console.error('mergeAndSave', err);
+    return false;
+  }
+}
+
+/* Create Room */
+async function createRoom(){
+  const code = randCode(6);
+  const initial = {
+    id: code,
+    board: Array(9).fill(null),
+    players: { X: { name: profile.nickname, avatar: profile.avatar }, O: null },
+    turn: 'X',
+    status: 'playing',
+    winner: null,
+    lastUpdate: nowISO()
+  };
+  const ok = await mergeAndSave(code, ()=> initial);
+  if(ok){ currentRoom = code; mySymbol = 'X'; $('roomDisplay').innerText = currentRoom; $('roomSub').innerText = 'Room created — share code'; renderRoom(games[currentRoom]); alert('Room created: ' + code); }
+  else alert('Failed to create room (check JSONBin settings).');
+}
+
+/* Join room */
+async function joinRoom(){
+  const code = ($('roomInput').value||'').trim().toUpperCase();
+  if(!code) return alert('Enter a room code');
+  await loadGames();
+  const room = games[code];
+  if(!room) return alert('Room not found');
+  // assign slot if free
+  if(!room.players.X){
+    const ok = await mergeAndSave(code, (r)=>{
+      if(!r) return null;
+      r.players.X = { name: profile.nickname, avatar: profile.avatar };
+      r.status = r.players.O ? 'playing' : 'playing';
+      r.lastUpdate = nowISO();
+      return r;
+    });
+    if(ok){ currentRoom = code; mySymbol = 'X'; $('roomDisplay').innerText = currentRoom; renderRoom(games[currentRoom]); return; }
+  }
+  if(!room.players.O){
+    const ok = await mergeAndSave(code, (r)=>{
+      if(!r) return null;
+      r.players.O = { name: profile.nickname, avatar: profile.avatar };
+      r.status = r.players.X ? 'playing' : 'playing';
+      r.lastUpdate = nowISO();
+      return r;
+    });
+    if(ok){ currentRoom = code; mySymbol = 'O'; $('roomDisplay').innerText = currentRoom; renderRoom(games[currentRoom]); return; }
+  }
+  // else spectator
+  currentRoom = code; mySymbol = null; $('roomDisplay').innerText = currentRoom; renderRoom(games[currentRoom]); alert('Room full — joined as spectator.');
+}
+
+/* Quick join from header input */
+async function quickJoin(){
+  const code = ($('quickRoom').value||'').trim().toUpperCase();
+  if(!code) return alert('Enter code');
+  $('roomInput').value = code;
+  await joinRoom();
+}
+
+/* Leave */
+function leaveRoom(){
+  currentRoom = null; mySymbol = null; $('roomDisplay').innerText = '—'; $('roomSub').innerText = 'Create or join a room'; renderRoom(null);
+}
+
+/* Render games list */
+function renderGamesList(){
+  const list = $('gamesList');
+  list.innerHTML = '';
+  const entries = Object.entries(games).sort((a,b)=> (b[1].lastUpdate||'').localeCompare(a[1].lastUpdate||''));
+  if(entries.length === 0){ list.innerHTML = '<div class="small">No active rooms</div>'; return; }
+  for(const [code,room] of entries.slice(0,30)){
+    const div = document.createElement('div'); div.className = 'gameItem';
+    div.innerHTML = `<div><strong>${code}</strong><div class="small">${room.players.X ? room.players.X.name : '—'} vs ${room.players.O ? room.players.O.name : '—'}</div></div>`;
+    const btn = document.createElement('button'); btn.className = 'btn'; btn.textContent = 'Join'; btn.onclick = ()=> { $('roomInput').value = code; joinRoom(); };
+    div.appendChild(btn);
+    list.appendChild(div);
+  }
+}
+
+/* Render a room board */
+function renderRoom(room){
+  const boardEl = $('board');
+  boardEl.innerHTML = '';
+  if(!room){
+    boardEl.innerHTML = '<div style="text-align:center;color:#9fb3c8;padding:18px">No room selected</div>';
+    $('turnPill').innerText = 'Not in room';
+    $('playersPill').innerText = 'Players: —';
+    return;
+  }
+  const b = room.board || Array(9).fill(null);
+  const win = findWin(b);
+  for(let i=0;i<9;i++){
+    const cell = document.createElement('div'); cell.className = 'cell';
+    if(b[i]) cell.classList.add(b[i].toLowerCase());
+    if(win && win.line.includes(i)) cell.classList.add('win');
+    if(b[i] || room.status === 'finished') cell.classList.add('disabled');
+    const span = document.createElement('div'); span.className = 'symbol'; span.innerHTML = b[i] ? (b[i] === 'X' ? '&#10005;' : '&#9675;') : '';
+    cell.appendChild(span);
+    cell.onclick = ()=> onCellClick(i);
+    boardEl.appendChild(cell);
+  }
+  $('turnPill').innerText = room.status === 'finished' ? (room.winner ? 'Winner: ' + room.winner : 'Draw') : 'Turn: ' + room.turn;
+  $('playersPill').innerText = `Players: X=${room.players.X ? room.players.X.name : '—'} | O=${room.players.O ? room.players.O.name : '—'}`;
+  $('roomSub').innerText = `Room ${room.id} • ${room.status}`;
+}
+
+/* Player attempts a move -> merge-and-save */
+async function onCellClick(i){
+  if(!currentRoom) return alert('Join/create a room first');
+  if(!mySymbol) return alert('Spectators cannot play');
+  const ok = await mergeAndSave(currentRoom, (room)=>{
+    if(!room) return null;
+    if(room.status === 'finished') return room;
+    if(room.turn !== mySymbol){ alert('Not your turn'); return room; }
+    if(room.board[i]){ alert('Cell already taken'); return room; }
+    room.board[i] = mySymbol;
+    const w = findWin(room.board);
+    if(w){ room.status = 'finished'; room.winner = (room.players && room.players[mySymbol]) ? room.players[mySymbol].name : mySymbol; room.lastUpdate = nowISO(); return room; }
+    if(room.board.filter(Boolean).length >= 9){ room.status = 'finished'; room.winner = null; room.lastUpdate = nowISO(); return room; }
+    room.turn = (room.turn === 'X') ? 'O' : 'X';
+    room.lastUpdate = nowISO();
+    return room;
+  });
+  if(!ok) console.warn('Move failed');
+}
+
+/* Win detection */
+function findWin(b){
+  const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  for(const L of lines){
+    const [a,bk,c] = L;
+    if(b[a] && b[a] === b[bk] && b[a] === b[c]) return { winner: b[a], line: L };
+  }
+  return null;
+}
+
+/* Profile modal/handlers */
+function openProfile(){ $('profileModal').style.display = 'flex'; $('modalNick').value = profile.nickname || ''; }
+function closeProfile(){ $('profileModal').style.display = 'none'; }
+function saveModalProfile(){
+  const n = $('modalNick').value.trim(); const f = $('modalAvatar').files[0];
+  if(f){ const r = new FileReader(); r.onload = (e)=>{ profile.nickname = n || profile.nickname; profile.avatar = e.target.result; applyProfile(); closeProfile(); saveProfileLocal(); }; r.readAsDataURL(f); }
+  else { profile.nickname = n || profile.nickname; applyProfile(); closeProfile(); saveProfileLocal(); }
+}
+function saveProfile(){
+  const n = $('nickInput').value.trim(); const f = $('avatarInput').files[0];
+  if(f){ const r = new FileReader(); r.onload = (e)=>{ profile.nickname = n || profile.nickname; profile.avatar = e.target.result; applyProfile(); saveProfileLocal(); alert('Saved'); }; r.readAsDataURL(f); }
+  else { profile.nickname = n || profile.nickname; applyProfile(); saveProfileLocal(); alert('Saved'); }
+}
+function loadLocalProfile(){ const s = localStorage.getItem('nx_profile'); if(s){ profile = JSON.parse(s); applyProfile(); alert('Loaded profile'); } else alert('No saved profile'); }
+function applyProfile(){ $('leftName').innerText = profile.nickname; $('leftAvatar').src = profile.avatar; $('leftStatus').innerText = currentRoom ? `In ${currentRoom} as ${mySymbol || 'spectator'}` : 'Not signed in'; }
+function saveProfileLocal(){ localStorage.setItem('nx_profile', JSON.stringify(profile)); }
+
+/* Manual refresh & auto toggle */
+async function manualRefresh(){ await loadGames(); }
+function toggleAuto(){ autoOn = !autoOn; $('autoBtn').innerText = 'Auto: ' + (autoOn ? 'On' : 'Off'); if(autoOn) startPoll(); else stopPoll(); }
+
+/* Polling */
+function startPoll(){ stopPoll(); pollTimer = setInterval(loadGames, 1500); }
+function stopPoll(){ if(pollTimer) clearInterval(pollTimer); pollTimer = null; }
+
+/* Initialization */
+(async function init(){
+  try{
+    // load stored profile
+    const s = localStorage.getItem('nx_profile'); if(s) profile = JSON.parse(s);
+    applyProfile();
+    await loadGames();
+    startPoll();
+  }catch(e){ console.error('init', e); alert('Init error — check console'); }
+})();
+
+/* Debug window access */
+window.Nexora = { loadGames, createRoom, joinRoom, profile };
+
+</script>
+</body>
+</html>
